@@ -1,518 +1,396 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D立体可視化: x²+y²≤1, 0≤z≤x²</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- OrbitControls -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <!-- FontAwesome icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- MathJax for rendering math expressions -->
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-    <script id="mathjax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #0f172a;
-            color: #f8fafc;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        #canvas-container {
-            width: 100vw;
-            height: 100vh;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
-        }
-        .glass-panel {
-            background: rgba(30, 41, 59, 0.75);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.125);
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>立体 x²+y²≤1, 0≤z≤x² の3D可視化</title>
+
+<!-- KaTeX（数式組版） -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0f1720;
+    font-family: "Hiragino Sans", "Noto Sans JP", "Segoe UI", sans-serif; color: #e6edf3; }
+  #panel { position: absolute; top: 12px; left: 12px; width: 310px; max-height: calc(100% - 24px);
+    overflow-y: auto; background: rgba(20, 28, 38, 0.88); border: 1px solid #2d3b4d;
+    border-radius: 10px; padding: 14px 16px; box-sizing: border-box; font-size: 13px;
+    backdrop-filter: blur(6px); }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  .def { color: #c9d6e3; margin-bottom: 10px; font-size: 13px; }
+  h2 { font-size: 13px; margin: 14px 0 6px; color: #7cc4ff; border-bottom: 1px solid #2d3b4d; padding-bottom: 3px; }
+  label { display: flex; align-items: center; gap: 6px; margin: 3px 0; cursor: pointer; }
+  input[type=range] { width: 100%; }
+  .row { display: flex; gap: 12px; }
+  .info { background: #0b1118; border-radius: 6px; padding: 8px 10px; margin-top: 8px;
+    font-size: 13px; line-height: 1.5; }
+  .info > div { margin: 4px 0; white-space: nowrap; overflow-x: auto; overflow-y: hidden; }
+  .info .katex { font-size: 1.08em; }
+  .def .katex { font-size: 1.05em; }
+  #chart { display: block; margin-top: 8px; background: #0b1118; border-radius: 6px; }
+  .hint { color: #8b9db1; font-size: 11px; margin-top: 10px; line-height: 1.7; }
+  button { background: #24364a; color: #e6edf3; border: 1px solid #3a5470; border-radius: 5px;
+    padding: 4px 10px; cursor: pointer; font-size: 12px; }
+  button:hover { background: #2f4760; }
+</style>
 </head>
-<body class="bg-slate-900 text-slate-100 select-none">
-
-    <div id="canvas-container"></div>
-
-    <!-- Top Left Title and Formula Panel -->
-    <div class="absolute top-4 left-4 z-10 glass-panel p-5 rounded-2xl max-w-sm shadow-2xl transition-all duration-300">
-        <h1 class="text-xl font-bold text-cyan-400 mb-2 flex items-center gap-2">
-            <i class="fa-solid fa-cube"></i> 立体の3D可視化
-        </h1>
-        <div class="text-sm space-y-2 text-slate-300 border-t border-slate-700/60 pt-3">
-            <p class="font-medium text-slate-200">【領域の条件】</p>
-            <div class="bg-slate-800/80 p-3 rounded-lg border border-slate-700 font-mono text-center text-cyan-300">
-                \( x^2 + y^2 \le 1 \)<br>
-                \( 0 \le z \le x^2 \)
-            </div>
-            <p class="text-xs text-slate-400 leading-relaxed pt-1">
-                底面は円 \(x^2+y^2 \le 1\)、下面は \(z=0\)、上面は放物柱面 \(z=x^2\) で囲まれた立体です。
-            </p>
-        </div>
-    </div>
-
-    <!-- Top Right Features & Properties -->
-    <div class="absolute top-4 right-4 z-10 glass-panel p-4 rounded-2xl max-w-xs shadow-2xl text-xs space-y-3 hidden sm:block">
-        <h2 class="font-semibold text-slate-200 border-b border-slate-700 pb-2 flex items-center justify-between">
-            <span><i class="fa-solid fa-calculator text-cyan-400"></i> 数学的性質</span>
-        </h2>
-        <div class="space-y-1.5 text-slate-300">
-            <div class="flex justify-between items-center bg-slate-800/50 p-2 rounded">
-                <span class="text-slate-400">体積 \(V\):</span>
-                <span class="font-mono text-cyan-300 font-bold">\(\frac{\pi}{4} \approx 0.785\)</span>
-            </div>
-            <div class="text-slate-400 text-[11px] leading-snug">
-                \(V = \iint_{x^2+y^2\le 1} x^2 \, dxdy = \frac{\pi}{4}\)
-            </div>
-        </div>
-    </div>
-
-    <!-- Bottom Center Interactive Controls Panel -->
-    <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10 glass-panel px-6 py-4 rounded-3xl shadow-2xl flex flex-wrap items-center justify-center gap-6 max-w-[95vw] sm:max-w-none">
-        <!-- Display Toggles -->
-        <div class="flex items-center gap-4 border-r border-slate-700/80 pr-4">
-            <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-cyan-300 transition">
-                <input type="checkbox" id="toggle-solid" checked class="rounded accent-cyan-500 w-4 h-4">
-                <span>立体本体</span>
-            </label>
-            <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-cyan-300 transition">
-                <input type="checkbox" id="toggle-parabola" checked class="rounded accent-purple-500 w-4 h-4">
-                <span>放物柱 \(z=x^2\)</span>
-            </label>
-            <label class="flex items-center gap-2 text-xs cursor-pointer hover:text-cyan-300 transition">
-                <input type="checkbox" id="toggle-cylinder" checked class="rounded accent-blue-500 w-4 h-4">
-                <span>円柱ガイド</span>
-            </label>
-        </div>
-
-        <!-- Opacity Slider -->
-        <div class="flex items-center gap-3 text-xs border-r border-slate-700/80 pr-4">
-            <span class="text-slate-400">不透明度:</span>
-            <input type="range" id="opacity-slider" min="0.2" max="1.0" step="0.05" value="0.85" class="w-24 accent-cyan-400 cursor-pointer">
-        </div>
-
-        <!-- Slice / Animation Control -->
-        <div class="flex items-center gap-3 text-xs">
-            <span class="text-slate-400">断面切断:</span>
-            <input type="range" id="slice-slider" min="-1" max="1" step="0.02" value="1" class="w-24 accent-pink-500 cursor-pointer">
-            <button id="btn-animate" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs transition flex items-center gap-1 shadow-md">
-                <i class="fa-solid fa-play" id="play-icon"></i>
-                <span id="play-text">アニメーション</span>
-            </button>
-            <button id="btn-reset" class="px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition text-xs" title="カメラ位置をリセット">
-                <i class="fa-solid fa-rotate-right"></i>
-            </button>
-        </div>
-    </div>
-
-    <!-- Navigation / Help tooltip -->
-    <div class="absolute bottom-4 right-4 z-10 text-[11px] text-slate-500 glass-panel px-3 py-1.5 rounded-lg hidden md:block">
-        ドラッグ: 回転 | 右ドラッグ: 移動 | ホイール: 拡大縮小
-    </div>
-
-    <script>
-        let scene, camera, renderer, controls;
-        let solidMesh, parabolaMesh, cylinderMesh, planeCutMesh, edgesMesh;
-        let isAnimating = false;
-        let animationId = null;
-
-        // Colors
-        const COLOR_SOLID = 0x06b6d4;      // Cyan
-        const COLOR_PARABOLA = 0xa855f7;   // Purple
-        const COLOR_CYLINDER = 0x3b82f6;   // Blue
-        const COLOR_EDGES = 0xffffff;      // White wireframe
-        const COLOR_SLICE = 0xec4899;      // Pink
-
-        // Local clipping plane definition
-        const localClippingPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 1);
-
-        function init() {
-            const container = document.getElementById('canvas-container');
-
-            // Scene setup
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0f172a);
-
-            // Camera setup
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.set(2.5, 2.0, 3.0);
-
-            // Renderer setup
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            renderer.localClippingEnabled = true;
-            container.appendChild(renderer.domElement);
-
-            // Controls setup
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-            controls.target.set(0, 0.4, 0);
-
-            // Lighting setup
-            setupLighting();
-
-            // Coordinate System Setup (Axes & Grid)
-            setupAxesAndGrid();
-
-            // Generate Geometries for the Specific Region
-            createSolidMesh();
-            createParabolaGuide();
-            createCylinderGuide();
-
-            // Event Listeners
-            window.addEventListener('resize', onWindowResize);
-            setupUIEventListeners();
-
-            // Initial render call
-            animate();
-        }
-
-        function setupLighting() {
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-
-            const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
-            dirLight1.position.set(5, 10, 7);
-            dirLight1.castShadow = true;
-            scene.add(dirLight1);
-
-            const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.4);
-            dirLight2.position.set(-5, -2, -5);
-            scene.add(dirLight2);
-
-            const pointLight = new THREE.PointLight(0xffffff, 0.5, 10);
-            pointLight.position.set(0, 3, 0);
-            scene.add(pointLight);
-        }
-
-        function setupAxesAndGrid() {
-            // Main Grid on XY plane / XZ plane
-            const gridHelper = new THREE.GridHelper(4, 20, 0x475569, 0x1e293b);
-            gridHelper.position.y = 0;
-            scene.add(gridHelper);
-
-            // Axes
-            const axesGroup = new THREE.Group();
-
-            // Custom colored axis lines with labels
-            const axisLength = 1.8;
-
-            // X Axis (Red)
-            const xMat = new THREE.LineBasicMaterial({ color: 0xef4444, linewidth: 2 });
-            const xGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(axisLength,0,0)]);
-            axesGroup.add(new THREE.Line(xGeo, xMat));
-
-            // Y Axis (Green) - Note: In math, Z is usually height. Here Three.js Y is UP, so we map:
-            // Three.js X = Math X
-            // Three.js Z = Math Y (negated for right hand)
-            // Three.js Y = Math Z (height)
-            const zMat = new THREE.LineBasicMaterial({ color: 0x22c55e, linewidth: 2 }); // Math Y
-            const zGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-axisLength)]);
-            axesGroup.add(new THREE.Line(zGeo, zMat));
-
-            // Z Axis (Height) (Blue)
-            const yMat = new THREE.LineBasicMaterial({ color: 0x3b82f6, linewidth: 2 }); // Math Z
-            const yGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,axisLength,0)]);
-            axesGroup.add(new THREE.Line(yGeo, yMat));
-
-            scene.add(axesGroup);
-
-            // Canvas Text Labels for Axes
-            createAxisLabel('X', axisLength + 0.1, 0, 0, '#ef4444');
-            createAxisLabel('Y', 0, 0, -(axisLength + 0.1), '#22c55e');
-            createAxisLabel('Z', 0, axisLength + 0.1, 0, '#3b82f6');
-        }
-
-        function createAxisLabel(text, x, y, z, color) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 64;
-            canvas.height = 64;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = color;
-            ctx.font = 'Bold 48px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, 32, 32);
-
-            const texture = new THREE.CanvasTexture(canvas);
-            const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-            const sprite = new THREE.Sprite(spriteMaterial);
-            sprite.position.set(x, y, z);
-            sprite.scale.set(0.3, 0.3, 0.3);
-            scene.add(sprite);
-        }
-
-        function createSolidMesh() {
-            // We construct a customParametric/BufferGeometry for the solid region
-            // Region: x^2 + y^2 <= 1, 0 <= z <= x^2
-            // Math coordinates: (x, y, z) -> Three.js coordinates: (x, z, -y)
-
-            const N_THETA = 80;
-            const N_R = 30;
-
-            const vertices = [];
-            const indices = [];
-            const uvs = [];
-
-            // Generate vertices for Top Surface (z = x^2), Bottom Surface (z = 0), and Side Wall (x^2+y^2=1)
-            // 1. Top Surface (z = x^2)
-            // 2. Bottom Surface (z = 0)
-            // 3. Side Surface (r = 1, 0 <= z <= x^2)
-
-            const topOffset = 0;
-            const bottomOffset = (N_THETA + 1) * (N_R + 1);
-
-            // Helper to get math coordinates
-            function getPoint(r, theta) {
-                const x = r * Math.cos(theta);
-                const y = r * Math.sin(theta);
-                const z = x * x; // Surface z = x^2
-                return { x, y, z };
-            }
-
-            // --- Top Surface Mesh ---
-            for (let i = 0; i <= N_THETA; i++) {
-                const theta = (i / N_THETA) * Math.PI * 2;
-                for (let j = 0; j <= N_R; j++) {
-                    const r = j / N_R;
-                    const p = getPoint(r, theta);
-                    // Map to Three.js: (x, z, -y)
-                    vertices.push(p.x, p.z, -p.y);
-                    uvs.push(i / N_THETA, j / N_R);
-                }
-            }
-
-            for (let i = 0; i < N_THETA; i++) {
-                for (let j = 0; j < N_R; j++) {
-                    const first = i * (N_R + 1) + j;
-                    const second = first + N_R + 1;
-
-                    indices.push(first, first + 1, second);
-                    indices.push(second, first + 1, second + 1);
-                }
-            }
-
-            // --- Bottom Surface Mesh (z = 0) ---
-            for (let i = 0; i <= N_THETA; i++) {
-                const theta = (i / N_THETA) * Math.PI * 2;
-                for (let j = 0; j <= N_R; j++) {
-                    const r = j / N_R;
-                    const x = r * Math.cos(theta);
-                    const y = r * Math.sin(theta);
-                    vertices.push(x, 0, -y);
-                    uvs.push(i / N_THETA, j / N_R);
-                }
-            }
-
-            for (let i = 0; i < N_THETA; i++) {
-                for (let j = 0; j < N_R; j++) {
-                    const first = bottomOffset + i * (N_R + 1) + j;
-                    const second = first + N_R + 1;
-
-                    // Reverse winding order for bottom face normals
-                    indices.push(first, second, first + 1);
-                    indices.push(second, second + 1, first + 1);
-                }
-            }
-
-            // --- Side Wall Surface (r = 1, 0 <= z <= x^2) ---
-            const sideOffset = bottomOffset + (N_THETA + 1) * (N_R + 1);
-            const N_Z = 20;
-
-            for (let i = 0; i <= N_THETA; i++) {
-                const theta = (i / N_THETA) * Math.PI * 2;
-                const x = Math.cos(theta);
-                const y = Math.sin(theta);
-                const zMax = x * x;
-
-                for (let k = 0; k <= N_Z; k++) {
-                    const z = (k / N_Z) * zMax;
-                    vertices.push(x, z, -y);
-                    uvs.push(i / N_THETA, k / N_Z);
-                }
-            }
-
-            for (let i = 0; i < N_THETA; i++) {
-                for (let k = 0; k < N_Z; k++) {
-                    const first = sideOffset + i * (N_Z + 1) + k;
-                    const second = first + N_Z + 1;
-
-                    indices.push(first, first + 1, second);
-                    indices.push(second, first + 1, second + 1);
-                }
-            }
-
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-            geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-            geometry.setIndex(indices);
-            geometry.computeVertexNormals();
-
-            // Material
-            const material = new THREE.MeshPhongMaterial({
-                color: COLOR_SOLID,
-                transparent: true,
-                opacity: 0.85,
-                side: THREE.DoubleSide,
-                shininess: 90,
-                specular: 0x444444,
-                clippingPlanes: [localClippingPlane],
-                clipShadows: true
-            });
-
-            solidMesh = new THREE.Mesh(geometry, material);
-            scene.add(solidMesh);
-
-            // Wireframe / Edges for clear boundary rendering
-            const edges = new THREE.EdgesGeometry(geometry, 15);
-            const lineMat = new THREE.LineBasicMaterial({ color: COLOR_EDGES, transparent: true, opacity: 0.5 });
-            edgesMesh = new THREE.LineSegments(edges, lineMat);
-            solidMesh.add(edgesMesh);
-        }
-
-        function createParabolaGuide() {
-            // Extended surface for z = x^2 (-1.2 <= x, y <= 1.2)
-            const geometry = new THREE.PlaneGeometry(2.4, 2.4, 40, 40);
-            const pos = geometry.attributes.position;
-
-            for (let i = 0; i < pos.count; i++) {
-                const x = pos.getX(i);
-                const y = pos.getY(i);
-                // Grid plane is XY in geometry. We transform z = x^2
-                // Geometry Z attribute becomes Math Z = x^2
-                pos.setZ(i, x * x);
-            }
-            geometry.computeVertexNormals();
-
-            // Re-orient to Three.js coordinate system (Math z = Three Y, Math y = -Three Z)
-            geometry.rotateX(-Math.PI / 2);
-
-            const material = new THREE.MeshPhongMaterial({
-                color: COLOR_PARABOLA,
-                transparent: true,
-                opacity: 0.25,
-                side: THREE.DoubleSide,
-                wireframe: true
-            });
-
-            parabolaMesh = new THREE.Mesh(geometry, material);
-            scene.add(parabolaMesh);
-        }
-
-        function createCylinderGuide() {
-            // Full cylinder x^2 + y^2 = 1, z from 0 to 1
-            const geometry = new THREE.CylinderGeometry(1, 1, 1.2, 48, 1, true);
-            // Center geometry so bottom is at z=0
-            geometry.translate(0, 0.6, 0);
-
-            const material = new THREE.MeshPhongMaterial({
-                color: COLOR_CYLINDER,
-                transparent: true,
-                opacity: 0.15,
-                side: THREE.DoubleSide,
-                wireframe: true
-            });
-
-            cylinderMesh = new THREE.Mesh(geometry, material);
-            scene.add(cylinderMesh);
-        }
-
-        function setupUIEventListeners() {
-            // Toggle Solid
-            document.getElementById('toggle-solid').addEventListener('change', (e) => {
-                solidMesh.visible = e.target.checked;
-            });
-
-            // Toggle Parabola
-            document.getElementById('toggle-parabola').addEventListener('change', (e) => {
-                parabolaMesh.visible = e.target.checked;
-            });
-
-            // Toggle Cylinder
-            document.getElementById('toggle-cylinder').addEventListener('change', (e) => {
-                cylinderMesh.visible = e.target.checked;
-            });
-
-            // Opacity Slider
-            document.getElementById('opacity-slider').addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
-                solidMesh.material.opacity = val;
-            });
-
-            // Slice Slider (Clipping)
-            const sliceSlider = document.getElementById('slice-slider');
-            sliceSlider.addEventListener('input', (e) => {
-                updateClipping(parseFloat(e.target.value));
-            });
-
-            // Animation Toggle Button
-            const btnAnimate = document.getElementById('btn-animate');
-            btnAnimate.addEventListener('click', () => {
-                isAnimating = !isAnimating;
-                const icon = document.getElementById('play-icon');
-                const text = document.getElementById('play-text');
-
-                if (isAnimating) {
-                    icon.className = "fa-solid fa-pause";
-                    text.textContent = "停止";
-                } else {
-                    icon.className = "fa-solid fa-play";
-                    text.textContent = "アニメーション";
-                }
-            });
-
-            // Reset Camera Button
-            document.getElementById('btn-reset').addEventListener('click', () => {
-                camera.position.set(2.5, 2.0, 3.0);
-                controls.target.set(0, 0.4, 0);
-                controls.update();
-            });
-        }
-
-        function updateClipping(val) {
-            // Slice along Math Y axis (Three.js Z axis)
-            localClippingPlane.constant = val;
-        }
-
-        let animClock = 0;
-
-        function animate() {
-            requestAnimationFrame(animate);
-
-            if (isAnimating) {
-                animClock += 0.015;
-                const sliceVal = Math.sin(animClock);
-                document.getElementById('slice-slider').value = sliceVal;
-                updateClipping(sliceVal);
-            }
-
-            controls.update();
-            renderer.render(scene, camera);
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        // Initialize when window loads
-        window.onload = function() {
-            init();
-        };
-    </script>
+<body>
+<div id="panel">
+  <h1>立体の3D可視化</h1>
+  <div class="def" id="def"></div>
+
+  <h2>表示</h2>
+  <label><input type="checkbox" id="showTop" checked> 上面&nbsp;<span id="lblTop"></span></label>
+  <label><input type="checkbox" id="showSide" checked> 側面&nbsp;<span id="lblSide"></span></label>
+  <label><input type="checkbox" id="showBottom" checked> 底面&nbsp;<span id="lblBottom"></span></label>
+  <label><input type="checkbox" id="showGhost"> 補助曲面（円柱・放物柱面全体）</label>
+  <label><input type="checkbox" id="wire"> ワイヤーフレーム</label>
+  <label><input type="checkbox" id="showAxes" checked> 座標軸・グリッド</label>
+  <div style="margin-top:6px">不透明度 <span id="opVal">0.90</span></div>
+  <input type="range" id="opacity" min="0.1" max="1" step="0.01" value="0.9">
+  <div style="margin-top:6px">
+    <button id="viewIso">斜め</button>
+    <button id="viewFront">正面(xz)</button>
+    <button id="viewTop">真上(xy)</button>
+    <button id="viewSideY">側面(yz)</button>
+  </div>
+
+  <h2>断面</h2>
+  <div class="row">
+    <label><input type="radio" name="axis" value="x" checked> x = 一定</label>
+    <label><input type="radio" name="axis" value="y"> y = 一定</label>
+    <label><input type="radio" name="axis" value="z"> z = 一定</label>
+  </div>
+  <div style="margin-top:4px">位置 <span id="sliceLabel"></span></div>
+  <input type="range" id="slice" min="0" max="1000" value="750">
+  <label><input type="checkbox" id="showSlice" checked> 断面を表示</label>
+  <label><input type="checkbox" id="clip"> 断面より先を切り取る</label>
+  <label><input type="checkbox" id="anim"> 断面をアニメーション</label>
+
+  <div class="info" id="info"></div>
+  <canvas id="chart"></canvas>
+
+  <div class="hint">
+    左ドラッグ：回転　右ドラッグ：平行移動　ホイール：拡大縮小<br>
+    色は高さ <span id="hintZ"></span> を表します（青: <span id="hintZ0"></span> → 赤: <span id="hintZ1"></span>）。<br>
+    断面積 <span id="hintA"></span> を積分すると体積 <span id="hintV"></span> になります。
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const $ = id => document.getElementById(id);
+const PI = Math.PI;
+
+// ---------- 数式描画（KaTeX。読み込めなければ文字列のまま） ----------
+const tex = (s, display = false) =>
+  window.katex ? katex.renderToString(s, { throwOnError: false, displayMode: display }) : s;
+const setTex = (id, s) => { $(id).innerHTML = tex(s); };
+
+setTex('def', String.raw`D=\{(x,y,z)\mid x^2+y^2\le 1,\ 0\le z\le x^2\}`);
+setTex('lblTop', 'z=x^2');
+setTex('lblSide', 'x^2+y^2=1');
+setTex('lblBottom', 'z=0');
+setTex('hintZ', 'z'); setTex('hintZ0', 'z=0'); setTex('hintZ1', 'z=1');
+setTex('hintA', 'A');
+setTex('hintV', String.raw`V=\dfrac{\pi}{4}\approx 0.7854`);
+
+// ---------- シーン ----------
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0f1720);
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.01, 100);
+camera.up.set(0, 0, 1);
+camera.position.set(3.0, -2.8, 2.2);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.localClippingEnabled = true;
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0, 0.35);
+controls.enableDamping = true;
+controls.update();
+
+scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+const d1 = new THREE.DirectionalLight(0xffffff, 1.8); d1.position.set(3, -2, 5); scene.add(d1);
+const d2 = new THREE.DirectionalLight(0xffffff, 0.7); d2.position.set(-3, 3, -2); scene.add(d2);
+
+// ---------- ユーティリティ ----------
+const heat = (z, c) => c.setHSL(0.66 * (1 - Math.min(Math.max(z, 0), 1)), 0.85, 0.55);
+
+function gridGeometry(nu, nv, fn, colorFn = heat) {
+  const pos = [], col = [], idx = [], c = new THREE.Color();
+  for (let i = 0; i <= nu; i++) for (let j = 0; j <= nv; j++) {
+    const p = fn(i / nu, j / nv);
+    pos.push(p[0], p[1], p[2]);
+    colorFn(p[2], c); col.push(c.r, c.g, c.b);
+  }
+  for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
+    const a = i * (nv + 1) + j, b = (i + 1) * (nv + 1) + j;
+    idx.push(a, b, a + 1, b, b + 1, a + 1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+function makeLabel(text, color) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = color; ctx.font = 'italic bold 84px serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 64, 64);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false }));
+  sp.scale.set(0.2, 0.2, 0.2);
+  return sp;
+}
+
+// ---------- 切断用クリッピング平面 ----------
+const clipPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0);
+
+// ---------- 立体 ----------
+const solid = new THREE.Group(); scene.add(solid);
+const makeMat = () => new THREE.MeshPhongMaterial({
+  vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.9, shininess: 40
+});
+const matTop = makeMat(), matSide = makeMat(), matBottom = makeMat();
+const solidMats = [matTop, matSide, matBottom];
+
+const NR = 48, NT = 128;
+const top = new THREE.Mesh(gridGeometry(NR, NT, (u, v) => {
+  const t = v * 2 * PI, x = u * Math.cos(t), y = u * Math.sin(t);
+  return [x, y, x * x];
+}), matTop);
+const side = new THREE.Mesh(gridGeometry(NT, 24, (u, v) => {
+  const t = u * 2 * PI, x = Math.cos(t), y = Math.sin(t);
+  return [x, y, v * x * x];
+}), matSide);
+const bottom = new THREE.Mesh(gridGeometry(NR, NT, (u, v) => {
+  const t = v * 2 * PI; return [u * Math.cos(t), u * Math.sin(t), 0];
+}), matBottom);
+solid.add(top, side, bottom);
+
+const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+function curve(fn, n = 256) {
+  const pts = []; for (let i = 0; i <= n; i++) pts.push(new THREE.Vector3(...fn(i / n)));
+  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), edgeMat);
+}
+solid.add(
+  curve(s => { const t = 2 * PI * s, x = Math.cos(t); return [x, Math.sin(t), x * x]; }),
+  curve(s => { const t = 2 * PI * s; return [Math.cos(t), Math.sin(t), 0]; })
+);
+
+// ---------- 補助曲面 ----------
+const ghost = new THREE.Group(); ghost.visible = false; scene.add(ghost);
+const cyl = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1.5, 64, 1, true),
+  new THREE.MeshBasicMaterial({ color: 0x9ad0ff, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false }));
+cyl.rotation.x = PI / 2; cyl.position.z = 0.6;
+const parab = new THREE.Mesh(gridGeometry(60, 10, (u, v) => {
+  const x = -1.25 + 2.5 * u; return [x, -1.3 + 2.6 * v, x * x];
+}), new THREE.MeshBasicMaterial({ color: 0xffb36b, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false }));
+const parabWire = new THREE.Mesh(parab.geometry,
+  new THREE.MeshBasicMaterial({ color: 0xffb36b, wireframe: true, transparent: true, opacity: 0.15 }));
+ghost.add(cyl, parab, parabWire);
+
+// ---------- 座標軸 ----------
+const axes = new THREE.Group(); scene.add(axes);
+function axisLine(a, b, color) {
+  axes.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]),
+    new THREE.LineBasicMaterial({ color })));
+}
+axisLine([-1.6, 0, 0], [1.6, 0, 0], 0xff6b6b);
+axisLine([0, -1.6, 0], [0, 1.6, 0], 0x6bff8f);
+axisLine([0, 0, -0.1], [0, 0, 1.5], 0x6bb5ff);
+const lx = makeLabel('x', '#ff6b6b'); lx.position.set(1.72, 0, 0);
+const ly = makeLabel('y', '#6bff8f'); ly.position.set(0, 1.72, 0);
+const lz = makeLabel('z', '#6bb5ff'); lz.position.set(0, 0, 1.62);
+const l1 = makeLabel('1', '#cccccc'); l1.scale.set(0.12, 0.12, 0.12); l1.position.set(-0.08, 0, 1.0);
+axes.add(lx, ly, lz, l1);
+const grid = new THREE.GridHelper(3, 12, 0x3a4a5c, 0x253241);
+grid.rotation.x = PI / 2; grid.position.z = -0.001; axes.add(grid);
+
+// ---------- 断面 ----------
+const AREA = {
+  x: t => 2 * t * t * Math.sqrt(Math.max(0, 1 - t * t)),
+  y: t => (2 / 3) * Math.pow(Math.max(0, 1 - t * t), 1.5),
+  z: t => { const s = Math.sqrt(Math.max(0, t)); return PI - 2 * (s * Math.sqrt(Math.max(0, 1 - s * s)) + Math.asin(Math.min(1, s))); }
+};
+// LaTeX 表記の断面積公式
+const AREA_TEX = {
+  x: String.raw`A(x)=2x^2\sqrt{1-x^2}`,
+  y: String.raw`A(y)=\dfrac{2}{3}\left(1-y^2\right)^{3/2}`,
+  z: String.raw`A(z)=\pi-2\left(\sqrt{z}\,\sqrt{1-z}+\arcsin\sqrt{z}\right)`
+};
+const RANGE = { x: [-1, 1], y: [-1, 1], z: [0, 1] };
+
+function simpson(f, a, b, n = 400) {
+  if (b <= a) return 0;
+  const h = (b - a) / n; let s = f(a) + f(b);
+  for (let i = 1; i < n; i++) s += f(a + i * h) * (i % 2 ? 4 : 2);
+  return s * h / 3;
+}
+
+const sliceGroup = new THREE.Group(); scene.add(sliceGroup);
+const sliceMat = new THREE.MeshBasicMaterial({ color: 0xffd54a, side: THREE.DoubleSide, transparent: true, opacity: 0.8, depthWrite: false });
+const sliceLineMat = new THREE.LineBasicMaterial({ color: 0xffffff });
+
+function buildSlice(axis, s) {
+  sliceGroup.children.forEach(o => o.geometry.dispose());
+  sliceGroup.clear();
+  const geos = [], outlines = [];
+  if (axis === 'x') {
+    const w = Math.sqrt(Math.max(0, 1 - s * s)), h = s * s;
+    geos.push(gridGeometry(1, 1, (u, v) => [s, (2 * u - 1) * w, v * h]));
+    outlines.push([[s, -w, 0], [s, w, 0], [s, w, h], [s, -w, h]]);
+  } else if (axis === 'y') {
+    const w = Math.sqrt(Math.max(0, 1 - s * s));
+    geos.push(gridGeometry(80, 1, (u, v) => { const x = (2 * u - 1) * w; return [x, s, v * x * x]; }));
+    const o = [[-w, s, 0], [w, s, 0]];
+    for (let i = 0; i <= 80; i++) { const x = w - 2 * w * i / 80; o.push([x, s, x * x]); }
+    outlines.push(o);
+  } else {
+    const a = Math.sqrt(s), phi0 = Math.acos(Math.min(1, a));
+    for (const sg of [1, -1]) {
+      geos.push(gridGeometry(50, 1, (u, v) => {
+        const x = sg * (a + (1 - a) * u), h = Math.sqrt(Math.max(0, 1 - x * x));
+        return [x, (2 * v - 1) * h, s];
+      }));
+      const o = [];
+      for (let i = 0; i <= 60; i++) { const p = -phi0 + 2 * phi0 * i / 60; o.push([sg * Math.cos(p), Math.sin(p), s]); }
+      outlines.push(o);
+    }
+  }
+  geos.forEach(g => sliceGroup.add(new THREE.Mesh(g, sliceMat)));
+  outlines.forEach(o => sliceGroup.add(new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints(o.map(p => new THREE.Vector3(...p))), sliceLineMat)));
+}
+
+// ---------- グラフ ----------
+const cv = $('chart'), ctx = cv.getContext('2d'), dpr = devicePixelRatio || 1;
+cv.style.width = '278px'; cv.style.height = '150px';
+cv.width = 278 * dpr; cv.height = 150 * dpr;
+
+function drawChart(axis, val) {
+  const W = cv.width, H = cv.height, [lo, hi] = RANGE[axis], f = AREA[axis];
+  ctx.clearRect(0, 0, W, H);
+  let maxA = 0; for (let i = 0; i <= 300; i++) maxA = Math.max(maxA, f(lo + (hi - lo) * i / 300));
+  const pl = 30 * dpr, pr = 10 * dpr, pt = 14 * dpr, pb = 22 * dpr;
+  const X = t => pl + (t - lo) / (hi - lo) * (W - pl - pr);
+  const Y = a => H - pb - a / maxA * (H - pt - pb);
+  ctx.beginPath(); ctx.moveTo(X(lo), Y(0));
+  for (let i = 0; i <= 200; i++) { const t = lo + (val - lo) * i / 200; ctx.lineTo(X(t), Y(f(t))); }
+  ctx.lineTo(X(val), Y(0)); ctx.closePath();
+  ctx.fillStyle = 'rgba(255,213,74,0.35)'; ctx.fill();
+  ctx.strokeStyle = '#4a5b6e'; ctx.lineWidth = dpr;
+  ctx.beginPath(); ctx.moveTo(pl, pt); ctx.lineTo(pl, H - pb); ctx.lineTo(W - pr, H - pb); ctx.stroke();
+  ctx.strokeStyle = '#7cc4ff'; ctx.lineWidth = 2 * dpr; ctx.beginPath();
+  for (let i = 0; i <= 300; i++) { const t = lo + (hi - lo) * i / 300; i ? ctx.lineTo(X(t), Y(f(t))) : ctx.moveTo(X(t), Y(f(t))); }
+  ctx.stroke();
+  ctx.strokeStyle = '#ffd54a'; ctx.lineWidth = 1.5 * dpr;
+  ctx.beginPath(); ctx.moveTo(X(val), pt); ctx.lineTo(X(val), H - pb); ctx.stroke();
+  ctx.fillStyle = '#ffd54a'; ctx.beginPath(); ctx.arc(X(val), Y(f(val)), 3.5 * dpr, 0, 2 * PI); ctx.fill();
+  ctx.fillStyle = '#9fb3c8'; ctx.font = `${10 * dpr}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText(lo, X(lo), H - 6 * dpr); ctx.fillText(hi, X(hi), H - 6 * dpr);
+  ctx.font = `italic ${11 * dpr}px serif`; ctx.fillText(axis, X((lo + hi) / 2), H - 6 * dpr);
+  ctx.font = `${10 * dpr}px sans-serif`;
+  ctx.textAlign = 'right'; ctx.fillText(maxA.toFixed(2), pl - 4 * dpr, pt + 4 * dpr); ctx.fillText('0', pl - 4 * dpr, H - pb);
+  ctx.textAlign = 'left'; ctx.font = `italic ${11 * dpr}px serif`; ctx.fillText(`A(${axis})`, pl + 4 * dpr, pt);
+}
+
+// ---------- 状態と更新 ----------
+let axis = 'x';
+const sliceValue = () => { const [lo, hi] = RANGE[axis]; return lo + (hi - lo) * $('slice').value / 1000; };
+
+function updateClip() {
+  const on = $('clip').checked;
+  const n = { x: [-1, 0, 0], y: [0, -1, 0], z: [0, 0, -1] }[axis];
+  clipPlane.normal.set(...n); clipPlane.constant = sliceValue();
+  for (const m of [...solidMats, edgeMat]) {
+    const want = on ? [clipPlane] : [];
+    if (m.clippingPlanes?.length !== want.length) { m.clippingPlanes = want; m.needsUpdate = true; }
+  }
+}
+
+const HL = s => String.raw`\color{#ffd54a}{\mathbf{${s}}}`;   // 強調色
+
+function updateSlice() {
+  const v = sliceValue(), [lo] = RANGE[axis], f = AREA[axis];
+  $('sliceLabel').innerHTML = tex(`${axis}=${v.toFixed(3)}`);
+  buildSlice(axis, v);
+  sliceGroup.visible = $('showSlice').checked;
+  updateClip();
+  const A = f(v), Vpart = simpson(f, lo, v);
+  $('info').innerHTML =
+    `<div>${tex(AREA_TEX[axis])}</div>` +
+    `<div>${tex(String.raw`A(${v.toFixed(3)})=${HL(A.toFixed(5))}`)}</div>` +
+    `<div>${tex(String.raw`\displaystyle\int_{${lo}}^{${v.toFixed(2)}} A(${axis})\,d${axis}=${HL(Vpart.toFixed(5))}`)}</div>` +
+    `<div>${tex(String.raw`V=\dfrac{\pi}{4}\approx ${(PI / 4).toFixed(5)}`)}</div>`;
+  drawChart(axis, v);
+}
+
+// ---------- UI ----------
+$('showTop').onchange = e => top.visible = e.target.checked;
+$('showSide').onchange = e => side.visible = e.target.checked;
+$('showBottom').onchange = e => bottom.visible = e.target.checked;
+$('showGhost').onchange = e => ghost.visible = e.target.checked;
+$('showAxes').onchange = e => axes.visible = e.target.checked;
+$('wire').onchange = e => solidMats.forEach(m => m.wireframe = e.target.checked);
+$('opacity').oninput = e => {
+  const o = +e.target.value; $('opVal').textContent = o.toFixed(2);
+  solidMats.forEach(m => { m.opacity = o; m.depthWrite = o > 0.97; });
+};
+$('slice').oninput = updateSlice;
+$('showSlice').onchange = updateSlice;
+$('clip').onchange = updateSlice;
+document.querySelectorAll('input[name=axis]').forEach(r => r.onchange = e => {
+  axis = e.target.value;
+  $('slice').value = axis === 'z' ? 300 : 750;
+  updateSlice();
+});
+
+function setView(pos) {
+  camera.position.set(...pos); controls.target.set(0, 0, 0.35); controls.update();
+}
+$('viewIso').onclick = () => setView([3.0, -2.8, 2.2]);
+$('viewFront').onclick = () => setView([0, -4.2, 0.4]);
+$('viewTop').onclick = () => setView([0, -0.001, 4.5]);
+$('viewSideY').onclick = () => setView([4.2, 0, 0.4]);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ---------- ループ ----------
+const clock = new THREE.Clock(); let phase = 0;
+function loop() {
+  const dt = clock.getDelta();
+  if ($('anim').checked) {
+    phase += dt * 0.8;
+    $('slice').value = Math.round(500 - 500 * Math.cos(phase));
+    updateSlice();
+  }
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+updateSlice();
+loop();
+</script>
 </body>
 </html>
